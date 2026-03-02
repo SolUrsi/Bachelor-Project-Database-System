@@ -1,0 +1,25 @@
+services:
+  mqtt-broker:
+    image: eclipse-mosquitto:latest
+    ports:
+      - "1883:1883"
+    volumes:
+      - ./mosquitto/config:/mosquitto/config
+
+  postgres-db:
+    image: postgres:latest
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: password123
+      POSTGRES_DB: vr_events
+    ports:
+      - "5432:5432"
+
+  event-processor:
+    build: .
+    depends_on:
+      - mqtt-broker
+      - postgres-db
+    environment:
+      ConnectionStrings__DefaultConnection: "Host=postgres-db;Database=vr_events;Username=admin;Password=password123"
+      Mqtt__BrokerHost: "mqtt-broker"
