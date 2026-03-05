@@ -1,18 +1,25 @@
 services:
   db:
     image: postgres:15
+    restart: always  
     environment:
       POSTGRES_DB: mqtt_db
       POSTGRES_USER: user
       POSTGRES_PASSWORD: password
     volumes:
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+      - postgres_data:/var/lib/postgresql/data 
 
   app:
     build: ./app
+    restart: always  
     environment:
-      MQTT_BROKER: "vps.ip.or.hostname"
+      # Removed the port from the IP string
+      MQTT_BROKER: "vps.ip" 
     volumes:
-      - ./my_exports:/exports # Må lage /my_exports folder som lokalt volum 
+      - ./my_exports:/exports
     depends_on:
       - db
+
+ volumes:
+  postgres_data: 
