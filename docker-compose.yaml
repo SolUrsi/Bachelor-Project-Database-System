@@ -1,24 +1,18 @@
 services:
   db:
     image: postgres:15
-    restart: always
     environment:
-      POSTGRES_USER: ${DB_USER}
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
-      POSTGRES_DB: iot_database
+      POSTGRES_DB: mqtt_db
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
 
-  processor:
-    build: .
+  app:
+    build: ./app
+    environment:
+      MQTT_BROKER: "vps.ip.or.hostname"
+    volumes:
+      - ./my_exports:/exports # Må lage /my_exports folder som lokalt volum 
     depends_on:
       - db
-    environment:
-      - MQTT_HOST=${EXTERNAL_MQTT_HOST}
-      - MQTT_PORT=${EXTERNAL_MQTT_PORT}
-      - MQTT_USER=${EXTERNAL_MQTT_USER}
-      - MQTT_PASS=${EXTERNAL_MQTT_PASS}
-      - DB_CONNECTION_STRING=Host=db;Database=iot_database;Username=${DB_USER};Password=${DB_PASSWORD}
-
-volumes:
-  pgdata:
