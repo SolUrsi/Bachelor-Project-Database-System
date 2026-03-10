@@ -14,7 +14,7 @@ services:
     build: ./app
     restart: always
     environment:
-      MQTT_BROKER: "vps.ip
+      MQTT_BROKER: "vps.ip"
     volumes:
       - ./my_exports:/exports # Må lage /my_exports folder som lokalt volum 
     depends_on:
