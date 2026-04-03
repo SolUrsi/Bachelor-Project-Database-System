@@ -5,7 +5,7 @@ import json
 import os
 import time
 
-DB_CONF = {
+DB_CONF = { 
     "host": "db",
     "database": "mqtt_db",
     "user": "user",
@@ -38,20 +38,29 @@ def on_message(client, userdata, msg):
 
         print(f"📥 Received message on topic: {msg.topic}")
 
+        # --- Handle Score Requests ---
         if msg.topic == "request/points":
             session_id = data.get("sessionId")
             print(f"🔍 Fetching points for session: {session_id}")
             cur.execute("SELECT final_score FROM sessions WHERE session_id = %s", (session_id,))
             result = cur.fetchone()
 
-            response_topic = f"response/points/{session_id}"
+            # Fix: Match the C# script's expected topic and JSON structure
+            response_topic = "response/points"
             score = result[0] if result else 0
-            client.publish(response_topic, json.dumps({"sessionId": session_id, "score": score}))
+            
+            response_payload = json.dumps({"sessionId": session_id, "finalScore": score})
+            client.publish(response_topic, response_payload)
+            
             cur.close()
-            print(f"📤 Sent score {score} to {response_topic}")
+            print(f"📤 Sent finalScore {score} to {response_topic}")
             return
 
+        # --- Handle Incoming Events ---
         header = data.get("header", {})
+        payload = data.get("payload", {})
+        telemetry = data.get("telemetry", {})
+        
         session_id = header.get("sessionId")
         timestamp = header.get("timestamp")
         event_type = header.get("eventType")
@@ -64,18 +73,32 @@ def on_message(client, userdata, msg):
                 VALUES (%s, %s, 'IN_PROGRESS') ON CONFLICT DO NOTHING;
             """, (session_id, timestamp))
 
+        # Insert the raw event
         cur.execute("""
             INSERT INTO vr_events (session_id, event_timestamp, scene_id, event_type, payload, telemetry)
             VALUES (%s, %s, %s, %s, %s, %s);
         """, (session_id, timestamp, header.get("sceneId"), event_type,
-              json.dumps(data.get("payload", {})), json.dumps(data.get("telemetry", {}))))
+              json.dumps(payload), json.dumps(telemetry)))
+
+        # --- Backend Score Calculation ---
+        # Extract points/penalties from the payload (defaulting to 0 if they don't exist)
+        points = int(payload.get("points", 0))
+        penalty = int(payload.get("penalty", 0))
+
+        # If this event awards or deducts points, update the session's running total
+        if points > 0 or penalty > 0:
+            cur.execute("""
+                UPDATE sessions 
+                SET final_score = final_score + %s - %s
+                WHERE session_id = %s;
+            """, (points, penalty, session_id))
 
         if event_type == "SESSION_END":
-            final_score = data.get("telemetry", {}).get("currentScore", 0)
+            # No longer relying on telemetry, just mark the session as completed
             cur.execute("""
-                UPDATE sessions SET end_time = %s, status = 'COMPLETED', final_score = %s
+                UPDATE sessions SET end_time = %s, status = 'COMPLETED'
                 WHERE session_id = %s;
-            """, (timestamp, final_score, session_id))
+            """, (timestamp, session_id))
 
         conn.commit()
         cur.close()
@@ -103,4 +126,4 @@ while not connected:
 
 client.subscribe([("events/#", 0), ("request/points", 0)])
 print("Subscribed to topics. Starting loop...")
-client.loop_forever()                                                                                                                                                                                           106,1       
+client.loop_forever()
