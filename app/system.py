@@ -109,7 +109,7 @@ def on_message(client, userdata, msg):
         if conn:
             conn.rollback()
 
-client = mqtt.Client(callback_api_version=CallbackAPIVersion.VERSION1)
+client = mqtt.Client(callback_api_version=CallbackAPIVersion.VERSION2)
 client.on_message = on_message
 
 connected = False
