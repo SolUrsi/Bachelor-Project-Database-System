@@ -10,5 +10,5 @@ COPY . ./
 
 EXPOSE 8080
 
-CMD ["python", "system.py"]
+CMD ["python", "-u", "system.py"]
 
